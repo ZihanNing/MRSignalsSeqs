@@ -23,17 +23,18 @@ title('Small Tip Approximation'); ylabel('Flip (deg)'); xlabel('Freq (kHz)');
 %% Bloch simulation
 
 Gz = 2.5;	% mT/m  (gamma/2pi*Gz ~ 100 kHz/m, 1kHz/cm;
-df = 300e-3;		% kHz, off-resonance.
+df = 3000e-3;		% kHz, off-resonance.
+phi = 0; % deg, RF pulse, tan(phi)=y/x; 0 means RF y; -90 means RF x
 
 pos = [-.05:.0001:.05];	% 	Positions to simulate
 
 M = ones(3,length(tplot),length(pos));
-M(1:2,:)=0;				% M=[1;0;0];
+M(1:2,:)=0;				% M=[0;0;1];
 
-%plot Gz
-subplot(3,1,3);
-plot(pos*10,pos*Gz);
-xlabel('Position(cm)'); ylabel('Delta_B0 (mT)'); title('Changed B0 along z axis')
+% %plot Gz
+% subplot(3,1,3);
+% plot(pos*10,pos*Gz);
+% xlabel('Position(cm)'); ylabel('Delta_B0 (mT)'); title('Changed B0 along z axis')
 
 
 % Note that we neglect relaxation during the RF.
@@ -45,7 +46,7 @@ for z = 1:length(pos)
   for ti = 2:length(tplot)
     % Hard Pulse Approximation...
     alpha = rf(tplot(ti))*dt*42.58*360;		% RF rotation over interval
-    Rrf = yrot(alpha);
+    Rrf = throt(alpha,phi);
 
     M(:,ti,z) = Rrf*Rgrad*M(:,ti-1,z);		% Apply RF, Gradient
 
@@ -53,17 +54,20 @@ for z = 1:length(pos)
 end;
 
 %% To plot
-figure(2);
+figure;
 subplot(3,2,1);
 plot(t(tplot),squeeze(M(1,:,ceil(length(pos)/2)))); 
+ylim([-1 1])
 xlabel('Time (ms)'); ylabel('M_x(t)'); title('M_x(t) in the centre of pos')
 
 subplot(3,2,3);
 plot(t(tplot),squeeze(M(2,:,ceil(length(pos)/2))));
+ylim([-1 1])
 xlabel('Time (ms)'); ylabel('M_y(t)'); title('M_y(t) in the centre of pos')
 
 subplot(3,2,5);
 plot(t(tplot),squeeze(M(3,:,ceil(length(pos)/2))));
+ylim([-1 1])
 xlabel('Time (ms)'); ylabel('M_z(t)'); title('M_z(t) in the centre of pos')
 
 subplot(3,2,2)
@@ -82,4 +86,18 @@ subplot(3,2,6)
 plot(pos*100,squeeze(M(3,end,:)));
 xlabel('Position (cm)'); ylabel('M_y(z)');
 title('M_z(z) at the end of time (final state)')
+
+% At the end of the RF pulse (at the center pos)
+Mxy = M(1,end,ceil(length(pos)/2)) + i*M(2,end,ceil(length(pos)/2));
+Mz = M(3,end,ceil(length(pos)/2));
+fprintf('=========== At the end of the RF pulse (at centre pos): \n');
+fprintf('Expected RF pulse: flip angle %d deg- phi %d deg \n',tip,phi);
+fprintf('Off-resonance freq: %d Hz\n',df*1000);
+fprintf('--Simu Result:\n');
+fprintf('Mag of the signal: abs(Mxy) = %.2f \n',abs(Mxy));
+fprintf('Phs of the signal: angle(Mxy) = %.2f * pi \n',angle(Mxy)/pi);
+fprintf('Residual Mz: abs(Mz) = %.2f \n',abs(Mz));
+fprintf('Actual flip angle: %.1f deg \n',rad2deg(atan(abs(Mxy)/abs(Mz))));
+fprintf('Phase shift: %.1f Hz \n',(phi+0.5*pi - angle(Mxy))/2*pi);
+
 
