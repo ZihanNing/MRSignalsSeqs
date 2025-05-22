@@ -7,6 +7,7 @@
 %	and after the relaxation.
 %
 %	If combine==1 and one output, then output is [A B] (3x4)
+%   ZN note: remind to keep the unit of T, T1 and T2 the same (s or ms)
 %
 %
 function [A,B] = relax(T,T1,T2,combine)
@@ -19,6 +20,6 @@ B = [0;0;1-E1];
 
 if ((nargin > 3) && (nargout < 2) && (combine==1))
   A = [A B];
-end;
+end
 
   
