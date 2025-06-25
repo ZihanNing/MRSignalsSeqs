@@ -5,29 +5,105 @@
 %
 % Starts the same as prior example...
 clear;
+close all;
+clc;
 
-plotlevel = 1;		% Level of detail to plot
+%% 0. setting the RF pulse (in GRE)
+plotlevel = 3;		% Level of detail to plot (<2, do not plot about RF pulse)
 dt = .004;		% ms, sample spacing
-tip = 30;		% desired tip angle
+tip = 150;		% desired tip angle
+phi = 0; % phase of the RF, deg; tan(phi)=y/x; 0 means RF y; -90 means RF x
 t = [-5:dt:5];		% extended time period to get 100 Hz spectral res.
 tplot = find(abs(t)<=1); % only work on central 2 ms
 rf=0*t;			% allocate RF
-rf(tplot) = msinc(length(tplot),3);	% put RF pulse in central part.
+rf(tplot) = msinc(length(tplot),3);	% put RF pulse in central part. (windowed sinc -> usually used)
 rf = rf/(sum(rf)*dt)*(tip/360)/42.58;	% scale for desired flip.
 
-rfp = fftshift(fft(fftshift(rf)))*dt*42.58;		% RF profile, scaled
-f = ([1:length(rfp)]-length(rfp)/2)/length(rfp)/dt;	% kHz
+% frequency domain
+rff = fftshift(fft(fftshift(rf)));		% RF profile, without scaling 
+f = ([1:length(rff)]-length(rff)/2)/length(rff)/dt;	% kHz
 
 if (plotlevel>2)
-  figure(1);		% Plot the RF and profile.
+  figure;		% Plot the RF and profile.
   subplot(2,1,1);
-  plot(t(tplot),rf(tplot)); xlabel('time(ms)'); ylabel('B1 (mT)');
+  plot(t(tplot),rf(tplot)); xlabel('time(ms)'); ylabel('B1 (mT)'); title('Time domain')
   subplot(2,1,2);
   freqplot = find(abs(f)<5);			% Plot only range of freqs.
-  plot(f(freqplot),abs(rfp(freqplot))*360);	
-  title('Small Tip Approximation'); ylabel('Flip (deg)'); xlabel('Freq (kHz)');
-end;
+  plot(f(freqplot),abs(rff(freqplot)));	
+  title('Frequency domain'); ylabel('B1 (mT)'); xlabel('Freq (kHz)');
+end
 
+%% 1. frequency profile (flip angle in each freq)
+% To note: 
+% Here I show two ways for frequency profile computation
+% a. small tip approximation (only for FA <= 30 deg)
+% b. hard pulse approximation (regardless to FA range)
+
+Mf = ones(3,length(t),length(f)); % M in terms of position & time
+Mf(1:2,:)=0;	
+% initailize flip angle in freq (freq profile)
+tip_f_small = zeros(length(f)); % small tip approximation
+tip_f_hard = zeros(length(f)); % hard pulse approximation
+
+% A. SMALL TIP APPROXIMATION
+rfp = fftshift(fft(fftshift(rf)))*dt*42.58;		% RF profile, scaled (small tip approximation)
+% flip angle approximation
+tip_f_small = abs(rfp)*360;
+% profile
+for fi = 1:length(f)
+  % Gradient rotation same for each interval
+  Rgrad = zrot(f(fi)*dt*360);	% zrot(a) = rotation matrix.
+  alpha = tip_f_small(fi);
+  Rrf = throt(alpha,phi);
+  Mf(:,end,fi) = Rrf*Rgrad*Mf(:,end,fi);		% Apply RF, Gradient
+end
+Mf_small = Mf; 
+
+
+
+% B. HARD PULSE APPROXIMATION
+% profile
+% Note that we neglect relaxation during the RF.
+for fi = 1:length(f)
+  % Gradient rotation same for each interval
+  Rgrad = zrot(f(fi)*dt*360);	% zrot(a) = rotation matrix.
+
+  for ti = 2:length(t)
+    % Hard Pulse Approximation...
+    alpha = rf(ti)*dt*42.58*360;		% RF rotation over interval
+    Rrf = throt(alpha,phi);
+
+    Mf(:,ti,fi) = Rrf*Rgrad*Mf(:,ti-1,fi);		% Apply RF, Gradient
+
+  end
+end
+% flip angle computed based on hard pulse approximation
+Mf_final = squeeze(Mf(:,end,:));
+Mz = Mf_final(3,:);
+Mmag_sq = sum(Mf_final.^2,1);
+tip_f_hard = rad2deg(acos(Mz ./ sqrt(Mmag_sq)));
+Mf_hard = Mf;
+
+% plot
+figure;
+subplot(211)
+freqplot = find(abs(f)<5);			% Plot only range of freqs.
+plot(f(freqplot),tip_f_small(freqplot),'-r');	
+hold on
+plot(f(freqplot),tip_f_hard(freqplot),'-b');	
+legend('small tip appro','hard pulse appro')
+title(['Flip angle: ',num2str(tip),' (deg)']); ylabel('Flip (deg)'); xlabel('Freq (kHz)');
+
+subplot(212)
+plot(f(freqplot),abs(squeeze(Mf_small(1,end,freqplot)+i*Mf_small(2,end,freqplot))),'-r')
+hold on
+plot(f(freqplot),abs(squeeze(Mf_hard(1,end,freqplot)+i*Mf_hard(2,end,freqplot))),'-b')
+legend('small tip appro','hard pulse appro')
+title(['Freq profile: ',num2str(tip),' (deg)']); ylabel('M_{xy}'); xlabel('Freq (kHz)');
+
+
+
+%% 1. To be continue
 TR = 5;			% ms
 T1 = 500;		% ms
 T2 = 50;		% ms
