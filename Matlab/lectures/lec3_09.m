@@ -11,7 +11,7 @@ clc;
 %% 0. setting the RF pulse (in GRE)
 plotlevel = 3;		% Level of detail to plot (<2, do not plot about RF pulse)
 dt = .004;		% ms, sample spacing
-tip = 150;		% desired tip angle
+tip = 2;		% desired tip angle
 phi = 0; % phase of the RF, deg; tan(phi)=y/x; 0 means RF y; -90 means RF x
 t = [-5:dt:5];		% extended time period to get 100 Hz spectral res.
 tplot = find(abs(t)<=1); % only work on central 2 ms
@@ -101,16 +101,16 @@ plot(f(freqplot),abs(squeeze(Mf_hard(1,end,freqplot)+i*Mf_hard(2,end,freqplot)))
 legend('small tip appro','hard pulse appro')
 title(['Freq profile: ',num2str(tip),' (deg)']); ylabel('M_{xy}'); xlabel('Freq (kHz)');
 
+%% 2. Bloch Simulation of GRE sequence
+% |-RF 30 deg---ACQ---RF 30 deg-....---|
 
-
-%% 1. To be continue
 TR = 5;			% ms
 T1 = 500;		% ms
 T2 = 50;		% ms
 
 % Bloch simulation
 
-Gz = 2.3;	% mT/m  (gamma/2pi*Gz ~ 100 kHz/m, 1kHz/cm;
+Gz = 2.3;	% mT/m  (gamma/2pi*Gz ~ 100 kHz/m, 1kHz/cm);
 df = 0;		% kHz, off-resonance.
 
 pos = [-.05:.0001:.05];	% 	Positions to simulate
@@ -147,14 +147,14 @@ for z = 1:length(pos)
 
     M(:,ti,z) = Rrf*Rgrad*M(:,ti-1,z);		% Apply RF, Gradient
 
-    Ai = At*Rgrad*Rrf;
+    Ai = At*Rgrad*Rrf; % Relaxation during RF
     Bi = Bt;
 
     % Propagate A,B
     A = Ai*A;
     B = Ai*B+Bi;
    
-  end;
+  end
 
   MM(:,z) = inv(eye(3)-A)*B;	% Steady-state magnetization.
   MMe(:,z) = A*[0;0;1]+B;	% Magnetization after RF.  Note that
@@ -162,36 +162,37 @@ for z = 1:length(pos)
 				% through 1 TR, there's no recovery before
 				% the RF, so we just get the excitation profile.
 
-end;
+end
 
 Mxy = MM(1,:)+i*MM(2,:);
 Mxye = MMe(1,:)+i*MMe(2,:);
 
-figure(2);
+figure;
 plot(pos*100,abs(Mxy),'k-',pos*100,real(Mxy),'b-',pos*100,imag(Mxy),'r:');
 grid on;
 xlabel('Position (cm)');
 ylabel('M_{xy}');
 title('Excitation/Recovery Signal vs Position');
+legend('abs(M_{xy})','real(M_{xy})','imag(M_{xy})')
 setprops;
 
 if (plotlevel>2)
-  figure(3);
+  figure;
   plot(pos*100,180/pi*asin(abs(Mxye)));		% Plot of *ANGLE*
   grid on;
   xlabel('Position (cm)');
   ylabel('Flip Angle (deg)');
   title('Excitation Profile vs Position');
   setprops;
-end;
+end
 
 if (plotlevel>2)
-  figure(4);
+  figure;
   fplot(@(x)sin(pi./180.*x).*(1-exp(-5./500))./(1-exp(-5./500).*cos(pi./180.*x)),[0,60]);
   %fplot('sin(pi/180*x)*(1-exp(-5/500))/(1-exp(-5/500)*cos(pi/180*x))',[0,60]);
   lplot('Signal','Flip Angle (deg)','Signal vs Flip Angle');
   setprops;
-end;
+end
 
 if (plotlevel < 4) disp('Try changing plotlevel for more/less detail.'); end;
 
