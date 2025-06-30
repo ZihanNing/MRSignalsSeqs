@@ -13,7 +13,7 @@ if (anim==1)
   filestem='/home/zn23/matlab/MRSignalsSeqs/Zihan_summary/Bloch_simulation/examples/fig_lec3_07/' 	% Make image sequence
 end;
 
-Nrf = 24;			% #points; defualt 100
+Nrf = 30;			% #points; defualt 100
 TB = 4;				% Time x Bandwidth product	
 rf = msinc(Nrf,TB/2);
 rf = rf*90/sum(rf);		% RF sums to 90 degrees.

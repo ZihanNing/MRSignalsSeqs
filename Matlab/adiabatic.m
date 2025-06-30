@@ -19,7 +19,7 @@ if (nargin < 2) bw = 2000;	end;
 if (nargin < 3) beta = 1000;	end;
 if (nargin < 4) T = 0.010;	end;
 if (nargin < 5) Ts = 0.00001;	end;
-if (nargin < 6) blochsim=0;	end;
+if (nargin < 6) blochsim=1;	end;
 
 T = 2*round(T/Ts/2)*Ts;
 N = T/Ts;
